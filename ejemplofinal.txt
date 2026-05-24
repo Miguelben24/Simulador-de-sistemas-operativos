@@ -1,0 +1,12 @@
+# Archivo de ejemplo — Simulador SO
+# Formato: N en la primera línea (número de procesos)
+# Luego N líneas: ID, T.Llegada, T.Ejecución, Memoria(MB)
+# Separador: espacio, coma, punto y coma, o tabulación
+# Las líneas que empiezan con # son comentarios
+
+5
+P1 0  8  512
+P2 1  4  256
+P3 2  9  768
+P4 3  5  128
+P5 4  2  384

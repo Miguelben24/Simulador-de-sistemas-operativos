@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador SO — CPU + Memoria</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="header-logo">SO</div>
+      <div>
+        <h1 class="header-title">Simulador de Sistema Operativo</h1>
+        <p class="header-sub">Planificación CPU · Gestión de Memoria</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="resetAll()" title="Reiniciar todo">↺ Reiniciar</button>
+      <button class="btn-icon danger" onclick="clearAll()" title="Limpiar">✕ Limpiar</button>
+    </div>
+  </header>
+
+  <main class="app-layout">
+
+    <!-- ══════════════════════════════════
+         COLUMNA IZQUIERDA — CONFIGURACIÓN
+    ══════════════════════════════════ -->
+    <aside class="sidebar">
+
+      <!-- ── ENTRADA DE PROCESOS ── -->
+      <section class="panel">
+        <div class="panel-head">
+          <span class="panel-icon">📋</span>
+          <span class="panel-title">Entrada de Procesos</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="input-grid">
+            <div class="field">
+              <label>ID</label>
+              <input type="text" id="inId" placeholder="P1" value="P1">
+            </div>
+            <div class="field">
+              <label>Llegada</label>
+              <input type="number" id="inArr" placeholder="0" value="0" min="0">
+            </div>
+            <div class="field">
+              <label>T. Ejecución</label>
+              <input type="number" id="inBurst" placeholder="5" min="1">
+            </div>
+            <div class="field">
+              <label>Memoria (MB)</label>
+              <input type="number" id="inMem" placeholder="256" min="1">
+            </div>
+            <button class="btn-add" onclick="addProcess()" title="Agregar">+</button>
+          </div>
+
+          <div id="inputAlert"></div>
+
+          <div class="divider-text">o cargar desde archivo .txt</div>
+
+          <label class="file-drop" for="fileInput">
+            <input type="file" id="fileInput" accept=".txt,.csv" onchange="loadFile(event)">
+            <span class="file-icon">📂</span>
+            <span class="file-hint">ID, llegada, duración, memoria</span>
+            <span class="file-name" id="fileName">—</span>
+          </label>
+
+          <div id="procTableWrap"></div>
+
+        </div>
+      </section>
+
+      <!-- ── ALGORITMOS ── -->
+      <section class="panel">
+        <div class="panel-head">
+          <span class="panel-icon">⚙</span>
+          <span class="panel-title">Algoritmos</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="algo-group">
+            <div class="algo-label">
+              <span class="algo-tag cpu-tag">CPU</span>
+              Planificación
+            </div>
+            <div class="algo-tabs" id="cpuTabs">
+              <button class="atab active" data-val="fcfs" onclick="setCpuAlgo('fcfs')">FCFS</button>
+              <button class="atab"        data-val="sjf"  onclick="setCpuAlgo('sjf')">SJF</button>
+              <button class="atab"        data-val="srt"  onclick="setCpuAlgo('srt')">SRT</button>
+              <button class="atab"        data-val="rr"   onclick="setCpuAlgo('rr')">RR</button>
+            </div>
+            <div class="quantum-row" id="quantumRow" style="display:none">
+              <label>Quantum:</label>
+              <input type="number" id="quantumInput" value="2" min="1" step="1">
+              <span class="quantum-unit">ut</span>
+            </div>
+          </div>
+
+          <div class="algo-group" style="margin-top:12px">
+            <div class="algo-label">
+              <span class="algo-tag mem-tag">MEM</span>
+              Gestión de Memoria
+            </div>
+            <div class="algo-tabs" id="memTabs">
+              <button class="atab active" data-val="first" onclick="setMemAlgo('first')">First Fit</button>
+              <button class="atab"        data-val="best"  onclick="setMemAlgo('best')">Best Fit</button>
+              <button class="atab"        data-val="worst" onclick="setMemAlgo('worst')">Worst Fit</button>
+              <button class="atab"        data-val="buddy" onclick="setMemAlgo('buddy')">Buddy</button>
+            </div>
+            <div class="mem-type-row" id="memTypeRow">
+              <button class="type-btn active" data-val="dynamic" onclick="setMemType('dynamic')">Dinámica</button>
+              <button class="type-btn"        data-val="fixed"   onclick="setMemType('fixed')">Fija</button>
+            </div>
+            <div id="buddyNote" class="info-note purple" style="display:none">
+              ⚡ Buddy System ajusta la memoria total a la siguiente potencia de 2.
+            </div>
+            <div id="fixedConfig" class="fixed-cfg" style="display:none">
+              <div class="field">
+                <label>N° Particiones</label>
+                <input type="number" id="numPartsInput" value="8" min="1" max="64">
+              </div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label>Memoria Total (MB)</label>
+            <input type="number" id="memTotalInput" value="4096" min="64">
+          </div>
+
+          <!-- Velocidad Gantt -->
+          <div class="speed-row">
+            <label>Velocidad animación:</label>
+            <div class="speed-ctrl">
+              <span>🐢</span>
+              <input type="range" id="speedSlider" min="1" max="10" value="5" oninput="onSpeedChange()">
+              <span>⚡</span>
+            </div>
+            <span class="speed-val" id="speedVal">×5</span>
+          </div>
+
+          <button class="btn-simulate" id="btnSim" onclick="simulate()" disabled>
+            ▶ Simular Todo
+          </button>
+
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- ══════════════════════════════════
+         ÁREA PRINCIPAL — RESULTADOS
+    ══════════════════════════════════ -->
+    <div class="results-area">
+
+      <!-- ── TABS DE VISTA ── -->
+      <div class="view-tabs">
+        <button class="vtab active" onclick="showView('cpu')">▶ Planificación CPU</button>
+        <button class="vtab"        onclick="showView('mem')">🗃 Gestión Memoria</button>
+        <button class="vtab"        onclick="showView('both')">⊞ Vista Combinada</button>
+      </div>
+
+      <!-- ══ VISTA CPU ══ -->
+      <div id="view-cpu" class="view-panel active">
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📊</span>
+            <span class="panel-title">Diagrama de Gantt</span>
+            <span class="badge" id="cpuBadge"></span>
+          </div>
+          <div class="panel-body">
+            <div id="ganttArea">
+              <div class="empty-state">Aquí aparecerá el diagrama de Gantt</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📈</span>
+            <span class="panel-title">Métricas de CPU</span>
+          </div>
+          <div class="panel-body">
+            <div id="cpuStatsBar" class="stats-bar"></div>
+            <div style="overflow-x:auto;margin-top:12px">
+              <table class="data-table" id="cpuResultsTable">
+                <tbody><tr><td colspan="7" class="empty-cell">Sin resultados aún</td></tr></tbody>
+              </table>
+            </div>
+            <div class="avg-row" id="cpuAvgCards"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📝</span>
+            <span class="panel-title">Registro de Ejecución CPU</span>
+            <button class="btn-xs" onclick="clearElem('cpuTraceArea')">Limpiar</button>
+          </div>
+          <div class="panel-body">
+            <div class="trace-box" id="cpuTraceArea">
+              <div class="trace-placeholder">Después de simular aparecerá el registro.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══ VISTA MEMORIA ══ -->
+      <div id="view-mem" class="view-panel">
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">🗺</span>
+            <span class="panel-title">Mapa de Memoria RAM</span>
+            <span class="badge purple" id="memBadge"></span>
+          </div>
+          <div class="panel-body">
+            <div id="memMapArea">
+              <div class="empty-state">Aquí aparecerá el mapa de memoria</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📈</span>
+            <span class="panel-title">Métricas de Memoria</span>
+          </div>
+          <div class="panel-body">
+            <div id="memStatsBar" class="stats-bar"></div>
+            <div style="overflow-x:auto;margin-top:12px">
+              <table class="data-table" id="memResultsTable">
+                <tbody><tr><td colspan="7" class="empty-cell">Sin resultados aún</td></tr></tbody>
+              </table>
+            </div>
+            <div class="avg-row" id="memAvgCards"></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">🕳</span>
+              <span class="panel-title">Huecos Libres</span>
+            </div>
+            <div class="panel-body">
+              <div id="memHolesList"><div class="trace-placeholder">—</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">↩</span>
+              <span class="panel-title">Liberar Proceso</span>
+            </div>
+            <div class="panel-body">
+              <div class="remove-row">
+                <select id="memRemoveSelect" class="select-field">
+                  <option value="">-- Seleccionar proceso --</option>
+                </select>
+                <button class="btn-remove" onclick="freeProcess()">↩ Liberar</button>
+              </div>
+              <p class="hint-text">Libera la memoria del proceso y fusiona huecos adyacentes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📝</span>
+            <span class="panel-title">Registro de Asignación</span>
+            <button class="btn-xs" onclick="clearElem('memTraceArea')">Limpiar</button>
+          </div>
+          <div class="panel-body">
+            <div class="trace-box" id="memTraceArea">
+              <div class="trace-placeholder">Después de simular aparecerá el registro.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══ VISTA COMBINADA ══ -->
+      <div id="view-both" class="view-panel">
+        <div class="combined-grid">
+
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">▶</span>
+              <span class="panel-title">Gantt — CPU</span>
+              <span class="badge" id="cpuBadge2"></span>
+            </div>
+            <div class="panel-body">
+              <div id="ganttArea2"><div class="empty-state">Sin datos</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">🗺</span>
+              <span class="panel-title">Mapa — Memoria</span>
+              <span class="badge purple" id="memBadge2"></span>
+            </div>
+            <div class="panel-body">
+              <div id="memMapArea2"><div class="empty-state">Sin datos</div></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-head">
+            <span class="panel-icon">📋</span>
+            <span class="panel-title">Resumen de Procesos</span>
+          </div>
+          <div class="panel-body">
+            <div style="overflow-x:auto">
+              <table class="data-table" id="combinedTable">
+                <tbody><tr><td colspan="9" class="empty-cell">Sin resultados aún</td></tr></tbody>
+              </table>
+            </div>
+            <div class="avg-row" id="combinedAvg"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /results-area -->
+
+  </main>
+
+  <script src="../js/cpu-algoritmos.js"></script>
+  <script src="../js/mem-algoritmos.js"></script>
+  <script src="../js/app.js"></script>
+</body>
+</html>
