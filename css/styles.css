@@ -16,7 +16,7 @@
 
   --cpu:       #3b6fd4;
   --cpu-soft:  #ebf0fb;
-  --mem:       #7c3aed;
+  --mem:       #a8ed3a;
   --mem-soft:  #ede9fe;
   --ok:        #2d8a5e;
   --ok-soft:   #e8f5ef;
@@ -307,6 +307,17 @@ body {
   cursor: pointer; opacity: .4; transition: opacity .15s; font-size: 13px;
 }
 .proc-table tr:hover .del-btn { opacity: 1; }
+
+/* Contenedor con scroll para la lista de procesos */
+#procTableWrap {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 6px; /* espacio para la scrollbar */
+}
+
+/* Scrollbar más visible dentro del contenedor */
+#procTableWrap::-webkit-scrollbar { width: 8px; }
+#procTableWrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 6px; }
 
 .alert-box {
   margin-top: 6px; padding: 6px 10px;

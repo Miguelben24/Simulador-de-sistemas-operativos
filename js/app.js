@@ -36,6 +36,7 @@ window.addEventListener('load', () => {
   setMemAlgo('first');
   setMemType('dynamic');
   onSpeedChange();
+  attachProcScroll();
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('inArr')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('inBurst')?.focus();
   });
+  attachProcScroll();
 });
 
 // ── VISTAS ────────────────────────────────────────────
@@ -206,6 +208,24 @@ function renderProcTable() {
   });
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+// Mejora del scroll en la lista de procesos: rueda más sensible y smooth
+function attachProcScroll() {
+  const wrap = document.getElementById('procTableWrap');
+  if (!wrap) return;
+  try {
+    wrap.style.scrollBehavior = 'smooth';
+    wrap.addEventListener('wheel', (e) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      // Multiplicador para que la rueda mueva más rápido la lista
+      wrap.scrollTop += e.deltaY * 3;
+    }, { passive: false });
+  } catch (err) {
+    // no hacer nada si el navegador bloquea el evento
+    console.warn('attachProcScroll:', err);
+  }
 }
 
 function showAlert(msg) {
