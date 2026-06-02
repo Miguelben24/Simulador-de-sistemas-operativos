@@ -170,6 +170,17 @@
 
         <div class="panel">
           <div class="panel-head">
+            <span class="panel-icon">📈</span>
+            <span class="panel-title">Métricas de CPU</span>
+          </div>
+          <div class="panel-body">
+            <div id="cpuStatsBar" class="stats-bar"></div>
+            <div class="avg-row" id="cpuAvgCards"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
             <span class="panel-icon">📊</span>
             <span class="panel-title">Diagrama de Gantt</span>
             <span class="badge" id="cpuBadge"></span>
@@ -183,17 +194,15 @@
 
         <div class="panel">
           <div class="panel-head">
-            <span class="panel-icon">📈</span>
-            <span class="panel-title">Métricas de CPU</span>
+            <span class="panel-icon">📋</span>
+            <span class="panel-title">Resultados — CPU</span>
           </div>
           <div class="panel-body">
-            <div id="cpuStatsBar" class="stats-bar"></div>
-            <div style="overflow-x:auto;margin-top:12px">
+            <div style="overflow-x:auto;margin-top:4px">
               <table class="data-table" id="cpuResultsTable">
                 <tbody><tr><td colspan="7" class="empty-cell">Sin resultados aún</td></tr></tbody>
               </table>
             </div>
-            <div class="avg-row" id="cpuAvgCards"></div>
           </div>
         </div>
 
