@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/styles.css">
+  <link rel="stylesheet" href="../css/archivos.css">
 </head>
 <body>
 
@@ -163,6 +164,7 @@
         <button class="vtab active" onclick="showView('cpu')">▶ Planificación CPU</button>
         <button class="vtab"        onclick="showView('mem')">🗃 Gestión Memoria</button>
         <button class="vtab"        onclick="showView('both')">⊞ Vista Combinada</button>
+        <button class="vtab" id="faTabBtn" onclick="faShowView('files')">📁 Asignación de Archivos</button>
       </div>
 
       <!-- ══ VISTA CPU ══ -->
@@ -339,12 +341,122 @@
         </div>
       </div>
 
+      <!-- ══ VISTA ASIGNACIÓN DE ARCHIVOS ══ -->
+      <div id="view-files" class="view-panel">
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">💽</span>
+            <span class="panel-title">Configuración del Disco</span>
+          </div>
+          <div class="panel-body">
+            <div class="fa-config-row">
+              <div class="field">
+                <label>Total de bloques del disco</label>
+                <input type="number" id="faTotalBlocksInput" value="64" min="4" max="512">
+              </div>
+              <button class="btn-icon" onclick="faResetDisk()">↺ Reiniciar Disco</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">➕</span>
+            <span class="panel-title">Crear Archivo</span>
+          </div>
+          <div class="panel-body">
+            <div class="input-grid" style="grid-template-columns: 1fr 100px;">
+              <div class="field">
+                <label>Nombre del archivo</label>
+                <input type="text" id="faFileNameInput" placeholder="datos.txt">
+              </div>
+              <div class="field">
+                <label>Tamaño (bloques)</label>
+                <input type="number" id="faFileSizeInput" placeholder="4" min="1" value="4">
+              </div>
+            </div>
+
+            <div class="algo-label" style="margin-top:8px">Método de asignación</div>
+            <div class="fa-method-tabs" id="faMethodTabs">
+              <button class="fa-atab active" data-val="contiguous" onclick="faSetMethod('contiguous')">Contigua</button>
+              <button class="fa-atab" data-val="linked" onclick="faSetMethod('linked')">Enlazada</button>
+              <button class="fa-atab" data-val="indexed" onclick="faSetMethod('indexed')">Indexada</button>
+            </div>
+
+            <button class="btn-simulate" style="margin-top:12px" onclick="faCreateFile()">📄 Crear Archivo</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">🗺</span>
+            <span class="panel-title">Mapa del Disco</span>
+          </div>
+          <div class="panel-body">
+            <div class="fa-disk-wrap" id="faDiskArea"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">🔗</span>
+            <span class="panel-title">Estructura de Punteros (Enlazada / Indexada)</span>
+          </div>
+          <div class="panel-body">
+            <div id="faChainsArea"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">📋</span>
+            <span class="panel-title">Archivos en Disco</span>
+          </div>
+          <div class="panel-body">
+            <div style="overflow-x:auto" id="faFilesTableWrap"></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">↩</span>
+              <span class="panel-title">Eliminar Archivo</span>
+            </div>
+            <div class="panel-body">
+              <div class="remove-row">
+                <select id="faDeleteSelect" class="select-field">
+                  <option value="">-- Seleccionar archivo --</option>
+                </select>
+                <button class="btn-remove" onclick="faDeleteFile(document.getElementById('faDeleteSelect').value)">✕ Eliminar</button>
+              </div>
+              <p class="hint-text">Libera los bloques (datos + índice si aplica) del archivo seleccionado.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <span class="panel-icon">📝</span>
+              <span class="panel-title">Registro de Asignación</span>
+              <button class="btn-xs" onclick="clearElem('faTraceArea')">Limpiar</button>
+            </div>
+            <div class="panel-body">
+              <div class="trace-box" id="faTraceArea">
+                <div class="trace-placeholder">Crea un archivo para ver el registro.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div><!-- /results-area -->
 
   </main>
 
   <script src="../js/cpu-algoritmos.js"></script>
   <script src="../js/mem-algoritmos.js"></script>
+  <script src="../js/archivo-algoritmos.js"></script>
   <script src="../js/app.js"></script>
 </body>
 </html>

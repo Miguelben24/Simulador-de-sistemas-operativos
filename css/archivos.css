@@ -1,0 +1,112 @@
+/* ══════════════════════════════════════════════════════════
+   archivos.css — Módulo de Asignación de Archivos en Disco
+   Archivo NUEVO, no modifica styles.css.
+   Reutiliza las variables --bg, --surface, --border, --cpu,
+   --mem, --ok, --warn, --err, --mono, --sans, --r, --r2
+   definidas en css/styles.css (debe cargarse después de él).
+══════════════════════════════════════════════════════════ */
+
+/* ── Tabs de método (mismo patrón visual que .atab) ── */
+.fa-method-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.fa-atab {
+  flex: 1; min-width: 90px;
+  padding: 6px 8px; border-radius: var(--r);
+  border: 1.5px solid var(--border2);
+  background: var(--bg); color: var(--muted);
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; text-align: center;
+}
+.fa-atab:hover { border-color: var(--cpu); color: var(--text); }
+.fa-atab.active {
+  background: var(--cpu); border-color: var(--cpu); color: #fff;
+}
+.fa-atab.active[data-val="linked"]  { background: var(--warn); border-color: var(--warn); }
+.fa-atab.active[data-val="indexed"] { background: var(--mem);  border-color: var(--mem);  }
+
+/* ── Config del disco ── */
+.fa-config-row { display: flex; gap: 8px; align-items: end; margin-top: 10px; }
+.fa-config-row .field { flex: 1; }
+
+/* ── Grid del disco (bloques físicos) ── */
+.fa-disk-wrap { margin-top: 12px; }
+.fa-disk-grid {
+  display: flex; flex-wrap: wrap; gap: 3px;
+  padding: 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--r2);
+}
+.fa-block {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700; color: #fff;
+  position: relative; cursor: default; transition: filter .12s, transform .12s;
+  border: 1px solid rgba(0,0,0,.08);
+}
+.fa-block:hover { filter: brightness(1.15); transform: scale(1.08); z-index: 3; }
+.fa-block.fa-free {
+  background: repeating-linear-gradient(45deg, #d4d8e0, #d4d8e0 4px, #e4e7ed 4px, #e4e7ed 10px);
+  color: var(--muted);
+}
+.fa-block.fa-index {
+  outline: 2px solid #fff; outline-offset: -3px;
+  box-shadow: 0 0 0 2px var(--text) inset;
+}
+.fa-block .fa-order-badge {
+  position: absolute; top: -5px; right: -5px;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--text); color: #fff;
+  font-size: 7.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #fff;
+}
+.fa-block::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 5px); left: 50%;
+  transform: translateX(-50%);
+  background: #1a1d23f0; color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 4px;
+  white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 10;
+}
+.fa-block:hover::after { opacity: 1; }
+
+.fa-disk-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 10px; color: var(--muted); }
+.fa-disk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.fa-legend-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ── Cadenas (Enlazada) e índices (Indexada) ── */
+.fa-chains-wrap { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.fa-chain-line {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 11px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 6px 10px;
+}
+.fa-chain-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.fa-chain-node {
+  padding: 1px 6px; border-radius: 3px; background: var(--surface);
+  border: 1px solid var(--border2); font-weight: 700;
+}
+.fa-chain-arrow { color: var(--light); }
+.fa-chain-null { color: var(--err); font-weight: 700; }
+.fa-chain-idx {
+  padding: 1px 6px; border-radius: 3px; font-weight: 700; color: #fff;
+  background: var(--text);
+}
+
+/* ── Tabla de archivos ── */
+.fa-files-table td .fa-color-dot {
+  width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px;
+}
+.fa-method-badge {
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; color: #fff;
+}
+.fa-method-badge.contiguous { background: var(--cpu); }
+.fa-method-badge.linked     { background: var(--warn); }
+.fa-method-badge.indexed    { background: var(--mem); }
+
+.fa-btn-del {
+  padding: 3px 9px; border-radius: var(--r);
+  background: transparent; border: 1px solid var(--err); color: var(--err);
+  font-size: 10px; font-weight: 700; cursor: pointer; transition: all .12s;
+}
+.fa-btn-del:hover { background: var(--err); color: #fff; }
