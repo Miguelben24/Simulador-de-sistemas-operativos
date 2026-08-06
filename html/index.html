@@ -351,12 +351,24 @@
           </div>
           <div class="panel-body">
             <div class="fa-config-row">
-              <div class="field">
-                <label>Total de bloques del disco</label>
-                <input type="number" id="faTotalBlocksInput" value="64" min="4" max="512">
-              </div>
-              <button class="btn-icon" onclick="faResetDisk()">↺ Reiniciar Disco</button>
-            </div>
+                  <div class="field">
+                    <label>Total de bloques del disco</label>
+                    <input type="number" id="faTotalBlocksInput" value="64" min="4" max="512">
+                  </div>
+                  <div class="field">
+                    <label>Tipo Formato</label>
+                    <select id="faFormatSelect">
+                      <option value="default">Normal</option>
+                      <option value="bitmap">Mapa de Bits (Bitmap)</option>
+                      <option value="fat">FAT</option>
+                    </select>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <button class="btn-icon" onclick="faFormatDisk()">🧹 Formatear Disco</button>
+                    <button class="btn-icon" onclick="faCreateSampleFiles()">✨ Crear Ejemplos</button>
+                  </div>
+                  <button class="btn-icon" onclick="faResetDisk()">↺ Reiniciar Disco</button>
+                </div>
           </div>
         </div>
 
@@ -382,6 +394,10 @@
               <button class="fa-atab active" data-val="contiguous" onclick="faSetMethod('contiguous')">Contigua</button>
               <button class="fa-atab" data-val="linked" onclick="faSetMethod('linked')">Enlazada</button>
               <button class="fa-atab" data-val="indexed" onclick="faSetMethod('indexed')">Indexada</button>
+              <button class="fa-atab" data-val="bitmap" onclick="faSetMethod('bitmap')">Mapa de Bits</button>
+              <button class="fa-atab" data-val="fat" onclick="faSetMethod('fat')">FAT</button>
+              <button class="fa-atab" data-val="extension" onclick="faSetMethod('extension')">Extensión</button>
+              <button class="fa-atab" data-val="multinivel" onclick="faSetMethod('multinivel')">Multinivel</button>
             </div>
 
             <button class="btn-simulate" style="margin-top:12px" onclick="faCreateFile()">📄 Crear Archivo</button>
@@ -397,6 +413,18 @@
             <div class="fa-disk-wrap" id="faDiskArea"></div>
           </div>
         </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-icon">💠</span>
+            <span class="panel-title">Mapa de Bits (Bitmap)</span>
+          </div>
+          <div class="panel-body">
+            <pre id="faBitmapArea" style="white-space:pre-wrap;word-break:break-all;color:var(--muted)">—</pre>
+          </div>
+        </div>
+
+        <!-- Tabla FAT eliminada por preferencia del usuario -->
 
         <div class="panel">
           <div class="panel-head">

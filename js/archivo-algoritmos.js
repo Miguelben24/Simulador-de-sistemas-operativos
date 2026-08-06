@@ -20,7 +20,15 @@ let faDisk        = [];      // [{ index, free, fileId, role }]  role: 'data' | 
 let faFiles        = [];     // [{ id, name, method, color, sizeBlocks, dataBlocks:[idx..], indexBlock:idx|null, chainOrder:[idx..] }]
 let faFileCounter  = 1;
 let faTotalBlocks  = 64;
-let faMethod       = 'contiguous'; // 'contiguous' | 'linked' | 'indexed'
+let faMethod       = 'contiguous'; // 'contiguous' | 'linked' | 'indexed' | 'bitmap' | 'fat' | 'extension' | 'multinivel'
+let faFatTable     = [];      // tabla FAT para el método FAT
+const PUNTEROS_POR_BLOQUE = 4; // bloques por índice 2do nivel en Multinivel
+
+function rango(a, b) {
+  const arr = [];
+  for (let i = a; i <= b; i++) arr.push(i);
+  return arr;
+}
 
 // ── INICIALIZACIÓN DEL DISCO ──
 function faInitDisk(total) {
@@ -28,6 +36,7 @@ function faInitDisk(total) {
   faDisk = Array.from({ length: faTotalBlocks }, (_, i) => ({
     index: i, free: true, fileId: null, role: null
   }));
+  faFatTable = new Array(faTotalBlocks).fill(-2);
   faFiles = [];
   faFileCounter = 1;
 }
@@ -72,6 +81,173 @@ function faFindNFree(n) {
   return found.length === n ? found : null;
 }
 
+function faBuildBitmap() {
+  return faDisk.map(b => (b.free ? '0' : '1')).join('');
+}
+
+function faFindFreeRunBitmap(size) {
+  const bitmap = faBuildBitmap();
+  let run = 0;
+  let start = -1;
+  for (let i = 0; i < bitmap.length; i++) {
+    if (bitmap[i] === '0') {
+      if (run === 0) start = i;
+      run++;
+      if (run === size) return start;
+    } else {
+      run = 0;
+      start = -1;
+    }
+  }
+  return -1;
+}
+
+function faAllocateBitmap(size) {
+  const start = faFindFreeRunBitmap(size);
+  if (start === -1) return { ok: false, error: `No hay ${size} bloques contiguos libres según el mapa de bits.` };
+  const blocks = rango(start, start + size - 1);
+  blocks.forEach(idx => {
+    faDisk[idx].free = false;
+    faDisk[idx].fileId = null;
+    faDisk[idx].role = 'data';
+  });
+  return { ok: true, bloques: blocks };
+}
+
+function faInitFAT(totalBlocks) {
+  return new Array(totalBlocks).fill(-2);
+}
+
+function faAllocateFAT(size) {
+  const libres = [];
+  for (let i = 0; i < faDisk.length && libres.length < size; i++) {
+    if (faDisk[i].free) libres.push(i);
+  }
+  if (libres.length < size) {
+    return { ok: false, error: `No hay suficientes bloques libres (${size}) para FAT.` };
+  }
+  for (let i = 0; i < libres.length; i++) {
+    const bloque = libres[i];
+    faDisk[bloque].free = false;
+    faDisk[bloque].fileId = null;
+    faDisk[bloque].role = 'data';
+    faFatTable[bloque] = (i === libres.length - 1) ? -1 : libres[i + 1];
+  }
+  return { ok: true, primerBloque: libres[0], bloques: libres };
+}
+
+function faFreeFAT(file) {
+  let actual = file.primerBloque;
+  while (actual !== -1 && actual !== undefined) {
+    const siguiente = faFatTable[actual];
+    faDisk[actual].free = true;
+    faDisk[actual].fileId = null;
+    faDisk[actual].role = null;
+    faFatTable[actual] = -2;
+    actual = siguiente;
+  }
+}
+
+function faBuildFATTrace(primerBloque) {
+  const pasos = [];
+  let actual = primerBloque;
+  while (actual !== -1 && actual !== undefined) {
+    pasos.push(actual);
+    actual = faFatTable[actual];
+  }
+  return pasos.join(' → ') + ' → FIN';
+}
+
+function faAllocateExtent(size) {
+  const extents = [];
+  let restantes = size;
+  let i = 0;
+  while (restantes > 0 && i < faDisk.length) {
+    if (faDisk[i].free) {
+      const start = i;
+      let len = 0;
+      while (i < faDisk.length && faDisk[i].free && len < restantes) {
+        len++;
+        i++;
+      }
+      extents.push({ inicio: start, longitud: len });
+      restantes -= len;
+    } else {
+      i++;
+    }
+  }
+  if (restantes > 0) {
+    return { ok: false, error: `No hay suficiente espacio libre fragmentado para ${size} bloques.` };
+  }
+  extents.forEach(ext => {
+    for (let b = ext.inicio; b < ext.inicio + ext.longitud; b++) {
+      faDisk[b].free = false;
+      faDisk[b].fileId = null;
+      faDisk[b].role = 'data';
+    }
+  });
+  return { ok: true, extents };
+}
+
+function faFreeExtent(file) {
+  file.extents.forEach(ext => {
+    for (let b = ext.inicio; b < ext.inicio + ext.longitud; b++) {
+      faDisk[b].free = true;
+      faDisk[b].fileId = null;
+      faDisk[b].role = null;
+    }
+  });
+}
+
+function faAllocateMultilevel(size) {
+  const numL2 = Math.ceil(size / PUNTEROS_POR_BLOQUE);
+  const bloquesNecesarios = 1 + numL2 + size;
+  const libres = [];
+  for (let i = 0; i < faDisk.length && libres.length < bloquesNecesarios; i++) {
+    if (faDisk[i].free) libres.push(i);
+  }
+  if (libres.length < bloquesNecesarios) {
+    return { ok: false, error: `No hay suficientes bloques libres para Multinivel (${bloquesNecesarios}).` };
+  }
+  const idx1 = libres[0];
+  const idx2Blocks = libres.slice(1, 1 + numL2);
+  const dataBlocks = libres.slice(1 + numL2);
+  faDisk[idx1].free = false;
+  faDisk[idx1].fileId = null;
+  faDisk[idx1].role = 'index1';
+  idx2Blocks.forEach(b => {
+    faDisk[b].free = false;
+    faDisk[b].fileId = null;
+    faDisk[b].role = 'index2';
+  });
+  dataBlocks.forEach(b => {
+    faDisk[b].free = false;
+    faDisk[b].fileId = null;
+    faDisk[b].role = 'data';
+  });
+  const tablaL2 = idx2Blocks.map((idx2Block, k) => ({
+    bloqueIndice: idx2Block,
+    datos: dataBlocks.slice(k * PUNTEROS_POR_BLOQUE, (k + 1) * PUNTEROS_POR_BLOQUE)
+  }));
+  return { ok: true, idx1, tablaL2, dataBlocks };
+}
+
+function faFreeMultilevel(file) {
+  faDisk[file.idx1].free = true;
+  faDisk[file.idx1].fileId = null;
+  faDisk[file.idx1].role = null;
+  file.tablaL2.forEach(nivel => {
+    faDisk[nivel.bloqueIndice].free = true;
+    faDisk[nivel.bloqueIndice].fileId = null;
+    faDisk[nivel.bloqueIndice].role = null;
+    nivel.datos.forEach(b => {
+      faDisk[b].free = true;
+      faDisk[b].fileId = null;
+      faDisk[b].role = null;
+    });
+  });
+}
+
 // ── CREACIÓN DE ARCHIVO ──
 function faCreateFile() {
   const nameEl = document.getElementById('faFileNameInput');
@@ -85,59 +261,131 @@ function faCreateFile() {
     return;
   }
 
+  faLog(`Creando: "${faEsc(name)}" · ${size} bloques · Método: ${faMethod}`,'trace-info');
+
   const id = 'F' + faFileCounter;
   const color = FA_COLORS[(faFileCounter - 1) % FA_COLORS.length];
   let dataBlocks = [];
   let indexBlock = null;
   let chainOrder = [];
+  let primerBloque = null;
+  let extents = null;
+  let tablaL2 = null;
+  let idx1 = null;
 
   if (faMethod === 'contiguous') {
+    faLog(`Buscando ${size} bloques contiguos (First Fit)...`, 'trace-info');
     const start = faFindContiguous(size);
     if (start === -1) {
       faLog(`✕ "${faEsc(name)}": no hay ${size} bloques contiguos libres.`, 'trace-err');
       return;
     }
+    faLog(`Hueco encontrado desde ${start} hasta ${start + size - 1}`, 'trace-ok');
     dataBlocks = Array.from({ length: size }, (_, k) => start + k);
+    dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
 
   } else if (faMethod === 'linked') {
+    faLog(`Buscando ${size} bloques libres en cualquier posición (Enlazada)...`, 'trace-info');
     const found = faFindNFree(size);
     if (!found) {
       faLog(`✕ "${faEsc(name)}": no hay ${size} bloques libres en el disco.`, 'trace-err');
       return;
     }
-    dataBlocks = found;
-    chainOrder = found.slice(); // orden de la cadena (bloque -> siguiente)
+    faLog(`Bloques seleccionados: [${found.join(', ')}]`, 'trace-ok');
+    dataBlocks = found; chainOrder = found.slice();
+    dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
 
   } else if (faMethod === 'indexed') {
-    const found = faFindNFree(size + 1); // +1 para el bloque de índice
+    faLog(`Buscando ${size + 1} bloques libres (1 índice + ${size} datos) (Indexada)...`, 'trace-info');
+    const found = faFindNFree(size + 1);
     if (!found) {
       faLog(`✕ "${faEsc(name)}": se necesitan ${size + 1} bloques (índice + datos) y no hay suficientes libres.`, 'trace-err');
       return;
     }
     indexBlock = found[0];
     dataBlocks = found.slice(1);
-  }
+    indexBlock = found[0];
+    faLog(`Índice en bloque ${indexBlock}; datos en [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
+    faDisk[indexBlock].free = false; faDisk[indexBlock].fileId = id; faDisk[indexBlock].role = 'index';
 
-  // Marcar bloques como ocupados
-  dataBlocks.forEach(idx => {
-    faDisk[idx].free = false;
-    faDisk[idx].fileId = id;
-    faDisk[idx].role = 'data';
-  });
-  if (indexBlock !== null) {
-    faDisk[indexBlock].free = false;
-    faDisk[indexBlock].fileId = id;
-    faDisk[indexBlock].role = 'index';
+  } else if (faMethod === 'bitmap') {
+    faLog(`Usando mapa de bits: buscando ${size} bloques contiguos según bitmap...`, 'trace-info');
+    const res = faAllocateBitmap(size);
+    if (!res.ok) {
+      faLog(`✕ "${faEsc(name)}": ${res.error}`, 'trace-err');
+      return;
+    }
+    dataBlocks = res.bloques;
+    faLog(`Bloques asignados según bitmap: [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+
+  } else if (faMethod === 'fat') {
+    faLog(`Asignando con FAT: buscando ${size} bloques libres y enlazándolos...`, 'trace-info');
+    const res = faAllocateFAT(size);
+    if (!res.ok) {
+      faLog(`✕ "${faEsc(name)}": ${res.error}`, 'trace-err');
+      return;
+    }
+    primerBloque = res.primerBloque;
+    dataBlocks = res.bloques;
+    faLog(`FAT primer bloque: ${primerBloque}; secuencia: [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+    chainOrder = res.bloques.slice();
+
+  } else if (faMethod === 'extension') {
+    faLog(`Asignación por extents: buscando fragmentos hasta completar ${size} bloques...`, 'trace-info');
+    const res = faAllocateExtent(size);
+    if (!res.ok) {
+      faLog(`✕ "${faEsc(name)}": ${res.error}`, 'trace-err');
+      return;
+    }
+    extents = res.extents;
+    faLog(`Extents asignados: ${extents.map(e => `[${e.inicio}:${e.longitud}]`).join(', ')}`, 'trace-ok');
+    dataBlocks = extents.flatMap(ext => rango(ext.inicio, ext.inicio + ext.longitud - 1));
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+
+  } else if (faMethod === 'multinivel') {
+    faLog(`Asignación multinivel: reservando índice de primer nivel + L2 + datos...`, 'trace-info');
+    const res = faAllocateMultilevel(size);
+    if (!res.ok) {
+      faLog(`✕ "${faEsc(name)}": ${res.error}`, 'trace-err');
+      return;
+    }
+    idx1 = res.idx1;
+    tablaL2 = res.tablaL2;
+    dataBlocks = res.dataBlocks;
+    faLog(`IDX1: ${idx1}; L2: ${tablaL2.map(n=>n.bloqueIndice).join(', ')}; datos: [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+    faDisk[idx1].fileId = id; tablaL2.forEach(nivel => { faDisk[nivel.bloqueIndice].fileId = id; });
+
+  } else {
+    faLog(`✕ Método de asignación desconocido: ${faMethod}`, 'trace-err');
+    return;
   }
 
   faFiles.push({
     id, name, method: faMethod, color,
-    sizeBlocks: size, dataBlocks, indexBlock, chainOrder
+    sizeBlocks: size, dataBlocks, indexBlock, chainOrder,
+    primerBloque, extents, idx1, tablaL2
   });
   faFileCounter++;
 
-  const methodLbl = { contiguous: 'Contigua', linked: 'Enlazada', indexed: 'Indexada' }[faMethod];
-  faLog(`✓ "${faEsc(name)}" creado (${methodLbl}, ${size} bloques) → [${dataBlocks.join(', ')}]${indexBlock !== null ? ` · índice en bloque ${indexBlock}` : ''}`, 'trace-ok');
+  const methodLbl = {
+    contiguous: 'Contigua', linked: 'Enlazada', indexed: 'Indexada',
+    bitmap: 'Bitmap', fat: 'FAT', extension: 'Extensión', multinivel: 'Multinivel'
+  }[faMethod];
+  const location = faMethod === 'indexed'
+    ? ` · índice en bloque ${indexBlock}`
+    : faMethod === 'fat'
+      ? ` · primer bloque ${primerBloque}`
+      : faMethod === 'extension'
+        ? ` · extents ${extents.map(e => `[${e.inicio}:${e.longitud}]`).join(', ')}`
+        : faMethod === 'multinivel'
+          ? ` · IDX1 ${idx1}`
+          : '';
+
+  faLog(`✓ "${faEsc(name)}" creado (${methodLbl}, ${size} bloques) → [${dataBlocks.join(', ')}]${location}`, 'trace-ok');
 
   if (nameEl) nameEl.value = '';
   faRenderAll();
@@ -147,16 +395,25 @@ function faCreateFile() {
 function faDeleteFile(fileId) {
   const file = faFiles.find(f => f.id === fileId);
   if (!file) return;
-
-  file.dataBlocks.forEach(idx => {
-    faDisk[idx].free = true;
-    faDisk[idx].fileId = null;
-    faDisk[idx].role = null;
-  });
-  if (file.indexBlock !== null) {
-    faDisk[file.indexBlock].free = true;
-    faDisk[file.indexBlock].fileId = null;
-    faDisk[file.indexBlock].role = null;
+  // Liberar según el método para respetar estructuras (FAT, multinivel, extents)
+  if (file.method === 'fat') {
+    if (typeof faFreeFAT === 'function') faFreeFAT(file);
+  } else if (file.method === 'multinivel') {
+    if (typeof faFreeMultilevel === 'function') faFreeMultilevel(file);
+  } else if (file.method === 'extension') {
+    if (typeof faFreeExtent === 'function') faFreeExtent(file);
+  } else {
+    // Caso por defecto (contigua, enlazada, indexada, bitmap): liberar bloques listados
+    file.dataBlocks.forEach(idx => {
+      faDisk[idx].free = true;
+      faDisk[idx].fileId = null;
+      faDisk[idx].role = null;
+    });
+    if (file.indexBlock !== null) {
+      faDisk[file.indexBlock].free = true;
+      faDisk[file.indexBlock].fileId = null;
+      faDisk[file.indexBlock].role = null;
+    }
   }
 
   faFiles = faFiles.filter(f => f.id !== fileId);
@@ -244,19 +501,23 @@ function faRenderFilesTable() {
   const wrap = document.getElementById('faFilesTableWrap');
   const select = document.getElementById('faDeleteSelect');
   if (!wrap) return;
-
   if (faFiles.length === 0) {
     wrap.innerHTML = `<table class="data-table fa-files-table"><tbody><tr><td colspan="6" class="empty-cell">Sin archivos creados aún</td></tr></tbody></table>`;
   } else {
-    const methodLbl = { contiguous: 'Contigua', linked: 'Enlazada', indexed: 'Indexada' };
+    const methodLbl = { contiguous: 'Contigua', linked: 'Enlazada', indexed: 'Indexada', bitmap: 'Bitmap', fat: 'FAT', extension: 'Extensión', multinivel: 'Multinivel' };
     let rows = faFiles.map(f => {
-      const blocksTxt = f.indexBlock !== null
-        ? `IDX:${f.indexBlock} · [${f.dataBlocks.join(', ')}]`
-        : `[${f.dataBlocks.join(', ')}]`;
+      let blocksTxt = '';
+      switch (f.method) {
+        case 'indexed': blocksTxt = `IDX:${f.indexBlock} · [${f.dataBlocks.join(', ')}]`; break;
+        case 'fat': blocksTxt = `P:${f.primerBloque} · [${(f.dataBlocks||[]).join(', ')}]`; break;
+        case 'extension': blocksTxt = `Ext: ${f.extents ? f.extents.map(e => `[${e.inicio}:${e.longitud}]`).join(', ') : ''}`; break;
+        case 'multinivel': blocksTxt = `IDX1:${f.idx1} · L2:${f.tablaL2 ? f.tablaL2.map(n=>n.bloqueIndice).join(', ') : ''} · [${(f.dataBlocks||[]).join(', ')}]`; break;
+        default: blocksTxt = `[${(f.dataBlocks||[]).join(', ')}]`; break;
+      }
       return `<tr>
         <td><span class="fa-color-dot" style="background:${f.color}"></span>${faEsc(f.name)}</td>
         <td>${f.id}</td>
-        <td><span class="fa-method-badge ${f.method}">${methodLbl[f.method]}</span></td>
+        <td><span class="fa-method-badge ${f.method}">${methodLbl[f.method] || f.method}</span></td>
         <td>${f.sizeBlocks}</td>
         <td style="font-family:var(--mono);font-size:10px">${blocksTxt}</td>
         <td><button class="fa-btn-del" onclick="faDeleteFile('${f.id}')">✕ Eliminar</button></td>
@@ -298,6 +559,133 @@ function faRenderAll() {
   faRenderDisk();
   faRenderChains();
   faRenderFilesTable();
+}
+
+// ── RENDER BITMAP / FAT ──
+function faRenderBitmapArea() {
+  const area = document.getElementById('faBitmapArea');
+  if (!area) return;
+  const bitmap = faBuildBitmap();
+  // mostrar en grupos de 8 para legibilidad
+  const groups = [];
+  for (let i = 0; i < bitmap.length; i += 8) groups.push(bitmap.slice(i, i + 8));
+  area.textContent = groups.map((g, idx) => `${String(idx * 8).padStart(3,' ')}: ${g}`).join('\n');
+}
+
+// Nota: la UI de la Tabla FAT fue eliminada por preferencia del usuario.
+
+// integrar renders adicionales
+function faRenderAll() {
+  faRenderDisk();
+  faRenderChains();
+  faRenderFilesTable();
+  faRenderBitmapArea();
+}
+
+// ── FORMATEAR DISCO / CREAR EJEMPLOS ──
+let faFormatType = 'default';
+
+function faFormatDisk() {
+  const total = parseInt(document.getElementById('faTotalBlocksInput')?.value, 10) || 64;
+  const selected = document.getElementById('faFormatSelect')?.value || 'default';
+  faFormatType = selected;
+  faInitDisk(total);
+  if (selected === 'fat') {
+    // inicializar FAT vacío
+    faFatTable = faInitFAT(faTotalBlocks);
+  }
+  faRenderAll();
+  faLog(`🧹 Disco formateado (${faTotalBlocks} bloques) — formato: ${selected}`, 'trace-ok');
+}
+
+function faCreateFileWithParams(name, size, method) {
+  faLog(`Creando (ejemplo): "${faEsc(name)}" · ${size} bloques · Método: ${method || faMethod}`,'trace-info');
+  const prevMethod = faMethod;
+  faMethod = method || faMethod;
+  // reutilizar parte de faCreateFile pero sin tocar inputs
+  const id = 'F' + faFileCounter;
+  const color = FA_COLORS[(faFileCounter - 1) % FA_COLORS.length];
+  let dataBlocks = [];
+  let indexBlock = null;
+  let chainOrder = [];
+  let primerBloque = null;
+  let extents = null;
+  let tablaL2 = null;
+  let idx1 = null;
+
+  const sizeN = parseInt(size, 10);
+  if (!sizeN || sizeN < 1) {
+    faLog(`Tamaño inválido para ejemplo: ${size}`, 'trace-err');
+    faMethod = prevMethod;
+    return false;
+  }
+
+  // asignación similar a faCreateFile
+  if (faMethod === 'contiguous') {
+    faLog(`Buscando ${sizeN} bloques contiguos (First Fit)...`, 'trace-info');
+    const start = faFindContiguous(sizeN);
+    if (start === -1) { faMethod = prevMethod; return false; }
+    faLog(`Hueco encontrado: ${start}..${start + sizeN - 1}`, 'trace-ok');
+    dataBlocks = Array.from({ length: sizeN }, (_, k) => start + k);
+    dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
+  } else if (faMethod === 'linked') {
+    faLog(`Buscando ${sizeN} bloques libres (Enlazada)...`, 'trace-info');
+    const found = faFindNFree(sizeN); if (!found) { faMethod = prevMethod; return false; }
+    faLog(`Bloques: [${found.join(', ')}]`, 'trace-ok');
+    dataBlocks = found; chainOrder = found.slice(); dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
+  } else if (faMethod === 'indexed') {
+    faLog(`Buscando ${sizeN + 1} bloques (Indexada: 1 índice + ${sizeN} datos)...`, 'trace-info');
+    const found = faFindNFree(sizeN + 1); if (!found) { faMethod = prevMethod; return false; }
+    indexBlock = found[0]; dataBlocks = found.slice(1);
+    faLog(`Índice: ${indexBlock}; datos: [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].free = false; faDisk[idx].fileId = id; faDisk[idx].role = 'data'; });
+    faDisk[indexBlock].free = false; faDisk[indexBlock].fileId = id; faDisk[indexBlock].role = 'index';
+  } else if (faMethod === 'bitmap') {
+    faLog(`Asignando vía bitmap (${sizeN} bloques)...`, 'trace-info');
+    const res = faAllocateBitmap(sizeN); if (!res.ok) { faMethod = prevMethod; return false; }
+    dataBlocks = res.bloques; faLog(`Bloques bitmap: [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+  } else if (faMethod === 'fat') {
+    faLog(`Asignando vía FAT (${sizeN} bloques)...`, 'trace-info');
+    const res = faAllocateFAT(sizeN); if (!res.ok) { faMethod = prevMethod; return false; }
+    primerBloque = res.primerBloque; dataBlocks = res.bloques; faLog(`FAT: primer ${primerBloque}; secuencia [${dataBlocks.join(', ')}]`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; }); chainOrder = res.bloques.slice();
+  } else if (faMethod === 'extension') {
+    faLog(`Asignando vía extents (${sizeN} bloques)...`, 'trace-info');
+    const res = faAllocateExtent(sizeN); if (!res.ok) { faMethod = prevMethod; return false; }
+    extents = res.extents; faLog(`Extents: ${extents.map(e=>`[${e.inicio}:${e.longitud}]`).join(', ')}`, 'trace-ok');
+    dataBlocks = extents.flatMap(ext => rango(ext.inicio, ext.inicio + ext.longitud - 1)); dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; });
+  } else if (faMethod === 'multinivel') {
+    faLog(`Asignación multinivel (${sizeN})...`, 'trace-info');
+    const res = faAllocateMultilevel(sizeN); if (!res.ok) { faMethod = prevMethod; return false; }
+    idx1 = res.idx1; tablaL2 = res.tablaL2; dataBlocks = res.dataBlocks; faLog(`IDX1: ${idx1}; L2: ${tablaL2.map(n=>n.bloqueIndice).join(', ')}`, 'trace-ok');
+    dataBlocks.forEach(idx => { faDisk[idx].fileId = id; faDisk[idx].free = false; faDisk[idx].role = 'data'; }); faDisk[idx1].fileId = id; tablaL2.forEach(nivel => { faDisk[nivel.bloqueIndice].fileId = id; });
+  } else {
+    faMethod = prevMethod; return false;
+  }
+
+  faFiles.push({ id, name, method: faMethod, color, sizeBlocks: sizeN, dataBlocks, indexBlock, chainOrder, primerBloque, extents, idx1, tablaL2 });
+  faFileCounter++;
+  faLog(`✓ Ejemplo: "${faEsc(name)}" creado (${faMethod}, ${sizeN} bloques)`, 'trace-ok');
+  faMethod = prevMethod;
+  return true;
+}
+
+function faCreateSampleFiles() {
+  // crea 3 archivos de ejemplo con distintos tamaños y métodos
+  const prevTotal = faTotalBlocks;
+  const prevMethod = faMethod;
+  faFormatDisk();
+  const examples = [
+    { name: 'datos.txt', size: 4, method: 'contiguous' },
+    { name: 'log.txt', size: 8, method: 'linked' },
+    { name: 'indice.db', size: 6, method: 'indexed' }
+  ];
+  examples.forEach(ex => {
+    faCreateFileWithParams(ex.name, ex.size, ex.method);
+  });
+  faLog('✨ Archivos de ejemplo creados.', 'trace-ok');
+  faRenderAll();
 }
 
 // ── TAB PROPIO DE VISTA (no modifica showView() de app.js) ──

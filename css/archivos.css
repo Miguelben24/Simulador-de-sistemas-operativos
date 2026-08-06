@@ -22,6 +22,13 @@
 }
 .fa-atab.active[data-val="linked"]  { background: var(--warn); border-color: var(--warn); }
 .fa-atab.active[data-val="indexed"] { background: var(--mem);  border-color: var(--mem);  }
+/* Colores para métodos adicionales */
+.fa-atab.active[data-val="bitmap"]    { background: #6b5cff; border-color: #6b5cff; color: #fff; }
+.fa-atab.active[data-val="fat"]       { background: #ff7a59; border-color: #ff7a59; color: #fff; }
+.fa-atab.active[data-val="extension"] { background: #10b981; border-color: #10b981; color: #fff; }
+.fa-atab.active[data-val="multinivel"]{ background: #a78bfa; border-color: #a78bfa; color: #fff; }
+
+/* Tabla FAT visual eliminada - estilos removidos */
 
 /* ── Config del disco ── */
 .fa-config-row { display: flex; gap: 8px; align-items: end; margin-top: 10px; }
@@ -30,17 +37,21 @@
 /* ── Grid del disco (bloques físicos) ── */
 .fa-disk-wrap { margin-top: 12px; }
 .fa-disk-grid {
-  display: flex; flex-wrap: wrap; gap: 3px;
-  padding: 10px; background: var(--bg);
+  display: grid;
+  grid-template-columns: repeat(10, 44px);
+  grid-auto-rows: 44px;
+  gap: 8px;
+  padding: 14px; background: var(--bg);
   border: 1px solid var(--border); border-radius: var(--r2);
+  justify-content: center;
 }
 .fa-block {
-  width: 30px; height: 30px; flex-shrink: 0;
-  border-radius: 4px;
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-size: 8.5px; font-weight: 700; color: #fff;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; color: #fff;
   position: relative; cursor: default; transition: filter .12s, transform .12s;
-  border: 1px solid rgba(0,0,0,.08);
+  border: 1px solid rgba(0,0,0,.06);
 }
 .fa-block:hover { filter: brightness(1.15); transform: scale(1.08); z-index: 3; }
 .fa-block.fa-free {
