@@ -355,14 +355,6 @@
                     <label>Total de bloques del disco</label>
                     <input type="number" id="faTotalBlocksInput" value="64" min="4" max="512">
                   </div>
-                  <div class="field">
-                    <label>Tipo Formato</label>
-                    <select id="faFormatSelect">
-                      <option value="default">Normal</option>
-                      <option value="bitmap">Mapa de Bits (Bitmap)</option>
-                      <option value="fat">FAT</option>
-                    </select>
-                  </div>
                   <div style="display:flex;flex-direction:column;gap:6px">
                     <button class="btn-icon" onclick="faFormatDisk()">🧹 Formatear Disco</button>
                     <button class="btn-icon" onclick="faCreateSampleFiles()">✨ Crear Ejemplos</button>
@@ -416,23 +408,32 @@
 
         <div class="panel">
           <div class="panel-head">
-            <span class="panel-icon">💠</span>
-            <span class="panel-title">Mapa de Bits (Bitmap)</span>
+            <span class="panel-icon">🧩</span>
+            <span class="panel-title">Estructura y Procedimiento del Método</span>
           </div>
           <div class="panel-body">
-            <pre id="faBitmapArea" style="white-space:pre-wrap;word-break:break-all;color:var(--muted)">—</pre>
-          </div>
-        </div>
 
-        <!-- Tabla FAT eliminada por preferencia del usuario -->
+            <!-- I. Contigua -->
+            <div class="fa-struct-panel active" id="faStruct-contiguous"></div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <span class="panel-icon">🔗</span>
-            <span class="panel-title">Estructura de Punteros (Enlazada / Indexada)</span>
-          </div>
-          <div class="panel-body">
-            <div id="faChainsArea"></div>
+            <!-- II. Enlazada -->
+            <div class="fa-struct-panel" id="faStruct-linked"></div>
+
+            <!-- III. Indexada Simple -->
+            <div class="fa-struct-panel" id="faStruct-indexed"></div>
+
+            <!-- V. Bitmap (Mapa de Bits) -->
+            <div class="fa-struct-panel" id="faStruct-bitmap"></div>
+
+            <!-- IV. FAT (Tabla de Asignación de Archivos) -->
+            <div class="fa-struct-panel" id="faStruct-fat"></div>
+
+            <!-- VI. Basado en Extensiones (Extents) -->
+            <div class="fa-struct-panel" id="faStruct-extension"></div>
+
+            <!-- VII. Indexada por Multinivel -->
+            <div class="fa-struct-panel" id="faStruct-multinivel"></div>
+
           </div>
         </div>
 

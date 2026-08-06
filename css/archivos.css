@@ -28,7 +28,69 @@
 .fa-atab.active[data-val="extension"] { background: #10b981; border-color: #10b981; color: #fff; }
 .fa-atab.active[data-val="multinivel"]{ background: #a78bfa; border-color: #a78bfa; color: #fff; }
 
-/* Tabla FAT visual eliminada - estilos removidos */
+/* ── Panel de Estructura y Procedimiento por método ── */
+/* Cada método tiene su propio apartado; solo se muestra el que
+   corresponde a la pestaña activa en #faMethodTabs. */
+.fa-struct-panel { display: none; }
+.fa-struct-panel.active { display: block; animation: faFadeIn .15s ease; }
+@keyframes faFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.fa-struct-title {
+  font-family: var(--sans); font-size: 12px; font-weight: 700;
+  color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+
+/* Caja de procedimiento (pasos numerados, tipo "cómo abre el archivo") */
+.fa-proc-box {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--bg); border: 1px dashed var(--border2); border-radius: var(--r2);
+  font-family: var(--sans); font-size: 11.5px; color: var(--text); line-height: 1.6;
+}
+.fa-proc-box b { color: var(--cpu); }
+.fa-proc-box .fa-proc-file + .fa-proc-file { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.fa-proc-step { display: block; margin-left: 2px; }
+.fa-proc-step b.fa-step-n {
+  display: inline-block; min-width: 16px; height: 16px; line-height: 16px;
+  text-align: center; border-radius: 50%; background: var(--cpu); color: #fff;
+  font-size: 9.5px; margin-right: 5px;
+}
+
+/* Mapa de Bits */
+.fa-bitmap-pre {
+  white-space: pre-wrap; word-break: break-all; color: var(--muted);
+  font-family: var(--mono); font-size: 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--r2); padding: 10px 12px; margin: 0;
+}
+.fa-bitmap-pre .bit1 { color: #6b5cff; font-weight: 700; }
+.fa-bitmap-pre .bit0 { color: var(--ok); }
+
+/* Tabla FAT */
+.fa-fat-wrap { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.fa-fat-table-box { flex: 1; min-width: 220px; }
+.fa-fat-table-box table.data-table th, .fa-fat-table-box table.data-table td { font-family: var(--mono); }
+
+/* Extents (bloques contiguos) */
+.fa-extent-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+.fa-extent-chip {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: #fff;
+  background: #10b981; padding: 3px 9px; border-radius: 20px;
+}
+
+/* Árbol de índices multinivel */
+.fa-ml-tree { font-family: var(--mono); font-size: 11px; margin-top: 8px; }
+.fa-ml-root {
+  display: inline-block; padding: 3px 10px; border-radius: var(--r);
+  background: var(--text); color: #fff; font-weight: 700; margin-bottom: 8px;
+}
+.fa-ml-l2-row { display: flex; flex-wrap: wrap; gap: 10px; margin-left: 10px; }
+.fa-ml-l2-box {
+  border: 1.5px solid #a78bfa; border-radius: var(--r2); padding: 6px 8px; min-width: 120px;
+}
+.fa-ml-l2-head { font-weight: 700; color: #a78bfa; margin-bottom: 4px; }
+.fa-ml-data-chip {
+  display: inline-block; margin: 2px; padding: 1px 6px; border-radius: 3px;
+  background: var(--surface); border: 1px solid var(--border2);
+}
 
 /* ── Config del disco ── */
 .fa-config-row { display: flex; gap: 8px; align-items: end; margin-top: 10px; }
@@ -36,6 +98,12 @@
 
 /* ── Grid del disco (bloques físicos) ── */
 .fa-disk-wrap { margin-top: 12px; }
+.fa-disk-grid-wrap { position: relative; display: inline-block; width: 100%; }
+.fa-disk-arrows {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 4;
+}
 .fa-disk-grid {
   display: grid;
   grid-template-columns: repeat(10, 44px);
@@ -96,7 +164,15 @@
   padding: 1px 6px; border-radius: 3px; background: var(--surface);
   border: 1px solid var(--border2); font-weight: 700;
 }
-.fa-chain-arrow { color: var(--light); }
+.fa-chain-arrow { color: var(--light); font-weight: 700; }
+.fa-chain-arrow::after { content: '→'; }
+.fa-chain-node, .fa-chain-idx, .fa-chain-fat, .fa-chain-note {
+  position: relative;
+}
+.fa-chain-fat, .fa-chain-note {
+  padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,.12);
+  color: var(--text); border: 1px solid rgba(0,0,0,.08);
+}
 .fa-chain-null { color: var(--err); font-weight: 700; }
 .fa-chain-idx {
   padding: 1px 6px; border-radius: 3px; font-weight: 700; color: #fff;
@@ -114,6 +190,10 @@
 .fa-method-badge.contiguous { background: var(--cpu); }
 .fa-method-badge.linked     { background: var(--warn); }
 .fa-method-badge.indexed    { background: var(--mem); }
+.fa-method-badge.bitmap     { background: #6b5cff; }
+.fa-method-badge.fat        { background: #ff7a59; }
+.fa-method-badge.extension  { background: #10b981; }
+.fa-method-badge.multinivel { background: #a78bfa; }
 
 .fa-btn-del {
   padding: 3px 9px; border-radius: var(--r);
